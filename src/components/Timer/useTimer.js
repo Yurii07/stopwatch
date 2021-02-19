@@ -1,16 +1,38 @@
-import { useState } from 'react';
-import { debounce } from "lodash";
+import { useState, useEffect } from 'react';
+import { debounce } from 'lodash';
+import { Subject } from 'rxjs';
+
+const subject = new Subject();
+
+const countService = {
+    start: () => subject.next(1),
+    clear: () => subject.next(),
+    onMessage: () => subject.asObservable()
+};
 
 const useTimer = (initialState = 0) => {
     const [timer, setTimer] = useState(initialState);
     const [interv, setInterv] = useState();
+
+    useEffect(() => {
+        const subscription = countService.onMessage().subscribe(message => {
+            if (message) {
+                setTimer((timer) => timer + message);
+            } else {
+                setTimer(initialState);
+            }
+        });
+
+        // return unsubscribe method to execute when component unmounts
+        return subscription.unsubscribe;
+    }, []);
 
     const handleStart = () => {
         setInterv(setInterval(run, 1000));
     };
 
     const run = () => {
-        setTimer((timer) => timer + 1);
+        countService.start();
     };
 
     const handleStop = () => {
@@ -20,7 +42,7 @@ const useTimer = (initialState = 0) => {
 
     const handleReset = () => {
         clearInterval(interv);
-        setTimer(0);
+        countService.clear();
         handleStart();
     };
 
@@ -36,11 +58,10 @@ const useTimer = (initialState = 0) => {
         if (isDoubleClick) {
             setIsDoubleClick(false);
             handleStop();
-            console.log(' double click ');
         }
     };
 
-    return { timer, interv, handleStart, handleStop, handleReset, handleWait }
-}
+    return { timer, interv, handleStart, handleStop, handleReset, handleWait };
+};
 
-export default useTimer
+export default useTimer;
